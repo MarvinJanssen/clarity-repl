@@ -4,11 +4,7 @@ use super::{
 use crate::clarity::analysis::errors::{CheckError, CheckErrors, CheckResult};
 use crate::clarity::errors::{Error as InterpError, RuntimeErrorType};
 use crate::clarity::functions::{handle_binding_list, NativeFunctions};
-use crate::clarity::types::{
-    BlockInfoProperty, FixedFunction, FunctionArg, FunctionSignature, FunctionType, PrincipalData,
-    TupleTypeSignature, TypeSignature, Value, BUFF_20, BUFF_32, BUFF_33, BUFF_64, BUFF_65,
-    MAX_VALUE_SIZE,
-};
+use crate::clarity::types::{BUFF_20, BUFF_32, BUFF_33, BUFF_64, BUFF_65, BlockInfoProperty, FixedFunction, FunctionArg, FunctionSignature, FunctionType, MAX_VALUE_SIZE, PrincipalData, SequenceData, TupleTypeSignature, TypeSignature, SequenceSubtype, Value};
 use crate::clarity::{ClarityName, SymbolicExpression, SymbolicExpressionType};
 use std::convert::TryFrom;
 
@@ -48,6 +44,15 @@ fn check_special_list_cons(
     TypeSignature::parent_list_type(&typed_args)
         .map_err(|x| x.into())
         .map(TypeSignature::from)
+}
+
+fn check_special_hashing(
+    checker: &mut TypeChecker,
+    args: &[SymbolicExpression],
+    context: &TypingContext,
+) -> TypeResult {
+    check_argument_count(1, args)?;
+    checker.type_check(&args[0], context)
 }
 
 fn check_special_print(
@@ -562,46 +567,11 @@ impl TypedNativeFunction {
                 )],
                 returns: TypeSignature::BoolType,
             }))),
-            Hash160 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(
-                vec![
-                    TypeSignature::max_buffer(),
-                    TypeSignature::UIntType,
-                    TypeSignature::IntType,
-                ],
-                BUFF_20.clone(),
-            ))),
-            Sha256 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(
-                vec![
-                    TypeSignature::max_buffer(),
-                    TypeSignature::UIntType,
-                    TypeSignature::IntType,
-                ],
-                BUFF_32.clone(),
-            ))),
-            Sha512Trunc256 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(
-                vec![
-                    TypeSignature::max_buffer(),
-                    TypeSignature::UIntType,
-                    TypeSignature::IntType,
-                ],
-                BUFF_32.clone(),
-            ))),
-            Sha512 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(
-                vec![
-                    TypeSignature::max_buffer(),
-                    TypeSignature::UIntType,
-                    TypeSignature::IntType,
-                ],
-                BUFF_64.clone(),
-            ))),
-            Keccak256 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(
-                vec![
-                    TypeSignature::max_buffer(),
-                    TypeSignature::UIntType,
-                    TypeSignature::IntType,
-                ],
-                BUFF_32.clone(),
-            ))),
+            Hash160 => Special(SpecialNativeFunction(&check_special_hashing)),
+            Sha256 => Special(SpecialNativeFunction(&check_special_hashing)),
+            Sha512Trunc256 => Special(SpecialNativeFunction(&check_special_hashing)),
+            Sha512 => Special(SpecialNativeFunction(&check_special_hashing)),
+            Keccak256 => Special(SpecialNativeFunction(&check_special_hashing)),
             Secp256k1Recover => Special(SpecialNativeFunction(&check_secp256k1_recover)),
             Secp256k1Verify => Special(SpecialNativeFunction(&check_secp256k1_verify)),
             GetStxBalance => Simple(SimpleNativeFunction(FunctionType::Fixed(FixedFunction {

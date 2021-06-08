@@ -35,22 +35,22 @@ use crate::clarity::costs::cost_functions::ClarityCostFunction;
 use crate::clarity::util::secp256k1::{secp256k1_recover, secp256k1_verify, Secp256k1PublicKey};
 use crate::clarity::util::StacksAddress;
 
+use crate::clarity::database::ClaritySerializable;
+
 macro_rules! native_hash_func {
     ($name:ident, $module:ty) => {
         pub fn $name(input: Value) -> Result<Value> {
             let bytes = match input {
-                Value::Int(value) => Ok(value.to_le_bytes().to_vec()),
-                Value::UInt(value) => Ok(value.to_le_bytes().to_vec()),
-                Value::Sequence(SequenceData::Buffer(value)) => Ok(value.data),
-                _ => Err(CheckErrors::UnionTypeValueError(
-                    vec![
-                        TypeSignature::IntType,
-                        TypeSignature::UIntType,
-                        TypeSignature::max_buffer(),
-                    ],
-                    input,
-                )),
-            }?;
+                Value::Int(value) => value.to_le_bytes().to_vec(),
+                Value::UInt(value) => value.to_le_bytes().to_vec(),
+                Value::Sequence(SequenceData::Buffer(value)) => value.data,
+                input => {
+                    let mut bytes = Vec::new();
+                    input.serialize_write(&mut bytes)
+                        .expect("IOError filling byte buffer.");
+                    bytes
+                }
+            };
             let hash = <$module>::from_data(&bytes);
             Value::buff_from(hash.as_bytes().to_vec())
         }
